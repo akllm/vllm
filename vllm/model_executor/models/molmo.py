@@ -33,7 +33,7 @@ from vllm.model_executor.layers.linear import (ColumnParallelLinear,
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
-from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
+from vllm.model_executor.layers.sampler import SamplerOutput, get_sampler
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     ParallelLMHead, VocabParallelEmbedding)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
@@ -1053,7 +1053,7 @@ class MolmoForCausalLM(nn.Module, SupportsMultiModal, SupportsPP):
 
         self.logits_processor = LogitsProcessor(config.embedding_size
                                                 or config.vocab_size)
-        self.sampler = Sampler()
+        self.sampler = get_sampler()
 
         self.make_empty_intermediate_tensors = (
             self.model.make_empty_intermediate_tensors)
@@ -1121,9 +1121,9 @@ class MolmoForCausalLM(nn.Module, SupportsMultiModal, SupportsPP):
             batch_size * num_image * num_patch, -1).contiguous()
 
         image_input_idx = image_input_idx * valid.to(image_input_idx.dtype)
-        offset = torch.cat(
-            [seq_len.new_zeros(
-                (1)), seq_len.cumsum(dim=0)[:-1]], dim=0)[:, None]
+        offset = torch.cat([seq_len.new_zeros(1),
+                            seq_len.cumsum(dim=0)[:-1]],
+                           dim=0)[:, None]
         image_input_idx = image_input_idx + offset.to(image_input_idx.dtype)
         image_input_idx = image_input_idx.flatten()[:, None]
         mat = image_input_idx == torch.arange(

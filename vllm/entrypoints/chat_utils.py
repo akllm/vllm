@@ -187,6 +187,8 @@ class BaseMultiModalItemTracker(ABC, Generic[_T]):
                 return "<|vision_start|><|image_pad|><|vision_end|>"
             if model_type == "molmo":
                 return ""
+            if model_type == "idefics3":
+                return "<image>"
 
             raise TypeError(f"Unknown {modality} model type: {model_type}")
         elif modality == "audio":
@@ -362,7 +364,7 @@ def load_chat_template(
     if chat_template is None:
         return None
     try:
-        with open(chat_template, "r") as f:
+        with open(chat_template) as f:
             resolved_chat_template = f.read()
     except OSError as e:
         if isinstance(chat_template, Path):

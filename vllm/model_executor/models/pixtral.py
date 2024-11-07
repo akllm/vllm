@@ -25,7 +25,7 @@ from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
                                                QKVParallelLinear,
                                                RowParallelLinear)
 from vllm.model_executor.layers.quantization import QuantizationConfig
-from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
+from vllm.model_executor.layers.sampler import SamplerOutput, get_sampler
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.models.utils import merge_multimodal_embeddings
 from vllm.model_executor.sampling_metadata import SamplingMetadata
@@ -136,11 +136,11 @@ def input_processor_for_pixtral(ctx: InputContext, inputs: DecoderOnlyInputs):
 
         if image_token_id not in inputs['prompt_token_ids']:
             raise ValueError(
-                (f"You've passed {inputs=} without {image_token_id=}"
-                 " Make sure to process your input via mistral_common's"
-                 " tokenizer or pass a chat completion request. For more"
-                 " For more info, see: "
-                 "https://github.com/vllm-project/vllm/issues/8411."))
+                f"You've passed {inputs=} without {image_token_id=}"
+                " Make sure to process your input via mistral_common's"
+                " tokenizer or pass a chat completion request. For more"
+                " For more info, see: "
+                "https://github.com/vllm-project/vllm/issues/8411.")
 
     return inputs
 
@@ -190,7 +190,7 @@ class PixtralForConditionalGeneration(nn.Module, SupportsMultiModal,
         if hasattr(self.language_model, "sampler"):
             return self.language_model.sampler
 
-        return Sampler()
+        return get_sampler()
 
     def forward(
         self,
