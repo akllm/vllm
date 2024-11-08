@@ -22,9 +22,9 @@ from vllm.transformers_utils.tokenizer_group import (
 from vllm.usage.usage_lib import UsageContext
 from vllm.v1.core.scheduler import Scheduler
 from vllm.v1.executor.gpu_executor import GPUExecutor
-from vllm.v1.processor.detokenizer import Detokenizer, DetokenizerInputs
 from vllm.v1.processor.mm_input_mapper import MMInputMapper
 from vllm.v1.request import Request, RequestStatus
+from vllm.v1.tokenizer.detokenizer import Detokenizer, DetokenizerInputs
 from vllm.version import __version__ as VLLM_VERSION
 
 logger = init_logger(__name__)
@@ -126,11 +126,7 @@ class LLMEngine:
             # Ping the tokenizer to ensure liveness if it runs in a
             # different process.
             self.tokenizer.ping()
-        self.detokenizer = Detokenizer(
-            self.model_config.tokenizer,
-            revision=self.model_config.revision,
-            tokenizer_mode=self.model_config.tokenizer_mode)
-
+        self.detokenizer = Detokenizer(self.model_config.tokenizer)
         self.generation_config_fields = _load_generation_config_dict(
             model_config)
         self.input_preprocessor = InputPreprocessor(model_config,
