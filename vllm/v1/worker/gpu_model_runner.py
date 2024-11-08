@@ -1,7 +1,7 @@
 import os
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import torch
@@ -422,7 +422,7 @@ class GPUModelRunner:
 
         if encoder_outputs:
             inputs_embeds = self.model.get_inputs_embeds(
-                input_ids, encoder_outputs)
+                self.input_ids[:num_input_tokens], encoder_outputs)
             kwargs = {"inputs_embeds": inputs_embeds}
         else:
             kwargs = {}
