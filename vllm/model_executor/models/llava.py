@@ -460,7 +460,7 @@ class LlavaForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP):
     def get_inputs_embeds(
         self,
         input_ids: torch.Tensor,
-        vision_embeddings: Optional[NestedTensors],
+        vision_embeddings: Optional[NestedTensors] = None,
     ) -> torch.Tensor:
         inputs_embeds = self.language_model.model.get_input_embeddings(
             input_ids)

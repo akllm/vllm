@@ -77,6 +77,7 @@ class GPUModelRunner:
             parallel_config)
         self.num_kv_heads = model_config.get_num_kv_heads(parallel_config)
         self.head_size = model_config.get_head_size()
+        self.hidden_size = model_config.get_hidden_size()
 
         # Multi-modal data support
         self.input_registry = input_registry
@@ -103,12 +104,13 @@ class GPUModelRunner:
                                and not self.model_config.enforce_eager)
         # TODO(woosuk): Provide an option to tune the max cudagraph batch size.
         self.cudagraph_batch_sizes = [1, 2, 4] + [i for i in range(8, 513, 8)]
-        self.input_ids = torch.zeros(self.max_num_tokens,
-                                     dtype=torch.int32,
-                                     device=self.device)
         self.positions = torch.zeros(self.max_num_tokens,
                                      dtype=torch.int64,
                                      device=self.device)
+        self.inputs_embeds = torch.zeros(
+            (self.max_num_tokens, self.hidden_size),
+            dtype=self.dtype,
+            device=self.device)
 
     def _update_states(self, scheduler_output: "SchedulerOutput") -> None:
         # Remove stopped requests from the cached states.
@@ -302,11 +304,9 @@ class GPUModelRunner:
         seq_start_loc_np[0] = 0
         np.cumsum(seq_lens, out=seq_start_loc_np[1:])
 
-        self.input_ids[:total_num_scheduled_tokens].copy_(input_ids,
-                                                          non_blocking=True)
+        input_ids = input_ids.to(self.device, non_blocking=True)
         self.positions[:total_num_scheduled_tokens].copy_(positions,
                                                           non_blocking=True)
-
         query_start_loc = query_start_loc.to(self.device, non_blocking=True)
         seq_start_loc = seq_start_loc.to(self.device, non_blocking=True)
         slot_mapping = slot_mapping.to(self.device, non_blocking=True).long()
@@ -325,7 +325,7 @@ class GPUModelRunner:
         # token from the partial request.
         # TODO: Support prompt logprobs.
         logits_indices = query_start_loc[1:] - 1
-        return attn_metadata, logits_indices
+        return input_ids, attn_metadata, logits_indices
 
     def _prepare_sampling(
         self,
@@ -408,7 +408,8 @@ class GPUModelRunner:
         encoder_outputs = self._gather_encoder_outputs(scheduler_output)
 
         # Prepare the decoder inputs.
-        attn_metadata, logits_indices = self._prepare_inputs(scheduler_output)
+        input_ids, attn_metadata, logits_indices = self._prepare_inputs(
+            scheduler_output)
         num_scheduled_tokens = scheduler_output.total_num_scheduled_tokens
         if (self.use_cuda_graph
                 and num_scheduled_tokens <= self.cudagraph_batch_sizes[-1]):
@@ -420,21 +421,21 @@ class GPUModelRunner:
             # Eager mode.
             num_input_tokens = num_scheduled_tokens
 
+        # Get the inputs embeds.
         if encoder_outputs:
             inputs_embeds = self.model.get_inputs_embeds(
-                self.input_ids[:num_input_tokens], encoder_outputs)
-            kwargs = {"inputs_embeds": inputs_embeds}
+                input_ids, encoder_outputs)
         else:
-            kwargs = {}
-
+            inputs_embeds = self.model.get_inputs_embeds(input_ids)
+        self.inputs_embeds[:num_scheduled_tokens].copy_(inputs_embeds)
         # Run the decoder.
         with set_forward_context(attn_metadata):
             hidden_states = self.model(
-                input_ids=self.input_ids[:num_input_tokens],
+                input_ids=None,
                 positions=self.positions[:num_input_tokens],
                 kv_caches=self.kv_caches,
                 attn_metadata=None,
-                **kwargs,
+                inputs_embeds=self.inputs_embeds[:num_input_tokens],
             )
         hidden_states = hidden_states[:num_scheduled_tokens]
         hidden_states = hidden_states[logits_indices]
@@ -524,10 +525,11 @@ class GPUModelRunner:
         with set_forward_context(None):  # noqa: SIM117
             with set_compile_context(self.cudagraph_batch_sizes):
                 # Trigger compilation for general shape.
-                model(self.input_ids,
-                      self.positions,
-                      dummy_kv_caches,
-                      attn_metadata=None)
+                model(input_ids=None,
+                      positions=self.positions,
+                      kv_caches=dummy_kv_caches,
+                      attn_metadata=None,
+                      inputs_embeds=self.inputs_embeds)
 
     @torch.inference_mode()
     def profile_run(self) -> None:
@@ -552,10 +554,11 @@ class GPUModelRunner:
             # can reuse the memory pool allocated for the large shapes.
             for num_tokens in reversed(self.cudagraph_batch_sizes):
                 self.model(
-                    self.input_ids[:num_tokens],
-                    self.positions[:num_tokens],
+                    input_ids=None,
+                    positions=self.positions[:num_tokens],
                     kv_caches=self.kv_caches,
                     attn_metadata=None,
+                    inputs_embeds=self.inputs_embeds[:num_tokens],
                 )
 
         end_time = time.perf_counter()
