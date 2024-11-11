@@ -538,7 +538,7 @@ class LlamaForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             normalize=False,
             softmax=False)
 
-    def get_inputs_embeds(self, input_ids: torch.Tensor) -> torch.Tensor:
+    def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.model.get_input_embeddings(input_ids)
 
     def forward(

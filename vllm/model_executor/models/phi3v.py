@@ -683,10 +683,10 @@ class Phi3VForCausalLM(nn.Module, SupportsMultiModal, SupportsPP):
         vision_embeddings = self._process_image_input(image_input)
         return vision_embeddings
 
-    def get_inputs_embeds(
+    def get_input_embeddings(
         self,
         input_ids: torch.Tensor,
-        vision_embeddings: Optional[NestedTensors],
+        vision_embeddings: Optional[NestedTensors] = None,
     ) -> torch.Tensor:
         inputs_embeds = self.embed_tokens(input_ids)
         if vision_embeddings is not None:
@@ -709,8 +709,8 @@ class Phi3VForCausalLM(nn.Module, SupportsMultiModal, SupportsPP):
             vision_embeddings = self.process_mm_inputs(**kwargs)
             # always pass the input via `inputs_embeds`
             # to make sure the computation graph is consistent
-            inputs_embeds = self.get_inputs_embeds(input_ids,
-                                                   vision_embeddings)
+            inputs_embeds = self.get_input_embeddings(input_ids,
+                                                      vision_embeddings)
             input_ids = None
 
         hidden_states = self.language_model.model(input_ids,
