@@ -423,10 +423,10 @@ class GPUModelRunner:
 
         # Get the inputs embeds.
         if encoder_outputs:
-            inputs_embeds = self.model.get_inputs_embeds(
+            inputs_embeds = self.model.get_input_embeddings(
                 input_ids, encoder_outputs)
         else:
-            inputs_embeds = self.model.get_inputs_embeds(input_ids)
+            inputs_embeds = self.model.get_input_embeddings(input_ids)
         self.inputs_embeds[:num_scheduled_tokens].copy_(inputs_embeds)
         # Run the decoder.
         with set_forward_context(attn_metadata):

@@ -520,8 +520,8 @@ class LlavaForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP):
             vision_embeddings = self.process_mm_inputs(**kwargs)
             # always pass the input via `inputs_embeds`
             # to make sure the computation graph is consistent
-            inputs_embeds = self.get_inputs_embeds(input_ids,
-                                                   vision_embeddings)
+            inputs_embeds = self.get_input_embeddings(input_ids,
+                                                      vision_embeddings)
             input_ids = None
 
         hidden_states = self.language_model.model(input_ids,

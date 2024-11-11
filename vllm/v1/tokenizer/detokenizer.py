@@ -51,8 +51,8 @@ class Detokenizer:
         self.detokenizer = DetokenizerProc(tokenizer_name=tokenizer_name,
                                            tokenizer_mode=tokenizer_mode,
                                            trust_remote_code=trust_remote_code,
-                                           push_port=self.push_port,
-                                           pull_port=self.pull_port)
+                                           push_port=self.pull_port,
+                                           pull_port=self.push_port)
         self.detokenizer.start()
 
         self.zmq_context = zmq.Context()
